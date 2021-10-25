@@ -43,13 +43,13 @@ void executeInFork(command *const com) {
   // should not be reached unless an error occurred
   switch (errno) {
     case ENOENT:
-      printf("%s: no such file or directory\n", argv[0]);
+      fprintf(stderr, "%s: no such file or directory\n", argv[0]);
       break;
     case EACCES:
-      printf("%s: permission denied\n", argv[0]);
+      fprintf(stderr, "%s: permission denied\n", argv[0]);
       break;
     default:
-      printf("%s: exec error\n", argv[0]);
+      fprintf(stderr, "%s: exec error\n", argv[0]);
       break;
   }
   exit(EXEC_FAILURE);
@@ -75,7 +75,7 @@ void handleLine() {
   line_buffer[size] = '\0';
   pipelineseq *parsed_line = parseline(line_buffer);
   if (parsed_line == NULL) {
-    printf("%s\n", SYNTAX_ERROR_STR);
+    fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
     return;
   }
 
