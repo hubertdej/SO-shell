@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "config.h"
+#include "reader.c"
 #include "siparse.h"
 
 char **getArgVector(command *const com) {
@@ -61,21 +62,16 @@ void handleLine() {
     fflush(stdout);
   }
 
-  char line_buffer[MAX_LINE_LENGTH + 1];
-
-  ssize_t size = read(STDIN_FILENO, line_buffer, MAX_LINE_LENGTH);
-  if (size == -1) {
-    perror("read() failed");
-    exit(EXIT_FAILURE);
+  char *line = getLine();
+  if (errno == EIO) {
+    fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
+    return;
   }
-
-  if (size == 0) {
-    // EOF
+  if (line == NULL) {
     exit(EXIT_SUCCESS);
   }
 
-  line_buffer[size] = '\0';
-  pipelineseq *parsed_line = parseline(line_buffer);
+  pipelineseq *parsed_line = parseline(line);
   if (parsed_line == NULL) {
     fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
     return;
