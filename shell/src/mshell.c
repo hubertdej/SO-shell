@@ -56,8 +56,10 @@ void executeInFork(command *const com) {
 }
 
 void handleLine() {
-  printf("%s", PROMPT_STR);
-  fflush(stdout);
+  if (isatty(STDIN_FILENO)) {
+    printf(PROMPT_STR);
+    fflush(stdout);
+  }
 
   char line_buffer[MAX_LINE_LENGTH + 1];
 
