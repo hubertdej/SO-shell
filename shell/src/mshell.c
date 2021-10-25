@@ -91,7 +91,7 @@ void handleLine() {
 int main(int argc, char *argv[]) {
   while (true) {
     handleLine();
-  };
+  }
 
   return EXIT_SUCCESS;
 }
