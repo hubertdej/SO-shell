@@ -57,11 +57,6 @@ void executeInFork(command *const com) {
 }
 
 void handleLine() {
-  if (isatty(STDIN_FILENO)) {
-    printf(PROMPT_STR);
-    fflush(stdout);
-  }
-
   char *line = getLine();
   if (errno == EIO) {
     fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
@@ -87,7 +82,13 @@ void handleLine() {
 }
 
 int main(int argc, char *argv[]) {
+  bool is_a_tty = isatty(STDIN_FILENO);
+
   while (true) {
+    if (is_a_tty) {
+      printf(PROMPT_STR);
+      fflush(stdout);
+    }
     handleLine();
   }
 
