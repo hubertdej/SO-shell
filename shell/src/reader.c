@@ -14,6 +14,8 @@
 // The return value from getLine() points to static data which may be overwritten by subsequent calls.
 // Returns NULL on EOF.
 // When a line exceeding the limit is read, the function returns NULL and sets the errno flag to EIO.
+// Since getLine() can return NULL on both success and failure, one should set errno to 0 before the call,
+// and then determine if an error occurred by checking whether errno has a nonzero value after the call.
 char* getLine() {
   static_assert(BUFFER_LENGTH >= 2 * MAX_LINE_LENGTH - 1, "reader buffer too small");
 
@@ -24,8 +26,6 @@ char* getLine() {
 
   static bool discard = false;
   static bool eof_detected = false;
-
-  errno = 0;
 
   if (eof_detected) {
     return NULL;

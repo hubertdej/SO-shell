@@ -73,6 +73,7 @@ void runCommand(command *const com) {
 }
 
 void handleLine() {
+  errno = 0;
   char *line = getLine();
   if (errno == EIO) {
     fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
