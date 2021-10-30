@@ -2,9 +2,11 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "builtins.h"
 #include "config.h"
 #include "reader.c"
 #include "siparse.h"
@@ -23,7 +25,22 @@ char **getArgVector(command *const com) {
   return argv;
 }
 
-void executeInFork(command *const com) {
+void runCommand(command *const com) {
+  char *command_name = com->args->arg;
+
+  for (builtin_pair *bp = builtins_table; bp->name != NULL; ++bp) {
+    if (strcmp(command_name, bp->name) == 0) {
+      if (bp->fun(getArgVector(com)) == BUILTIN_ERROR) {
+        fprintf(stderr, "Builtin %s error.\n", command_name);
+      }
+      return;
+    }
+  }
+
+  // It is crucial to flush the output stream before calling fork() and exec()
+  // so that the buffered characters appear BEFORE whatever the child process outputs.
+  fflush(stdout);
+
   pid_t pid = fork();
   if (pid == -1) {
     perror("fork() failed\n");
@@ -38,19 +55,18 @@ void executeInFork(command *const com) {
     return;
   }
 
-  char **argv = getArgVector(com);
-  execvp(argv[0], argv);
+  execvp(command_name, getArgVector(com));
 
   // Should not be reached unless an error occurred.
   switch (errno) {
     case ENOENT:
-      fprintf(stderr, "%s: no such file or directory\n", argv[0]);
+      fprintf(stderr, "%s: no such file or directory\n", command_name);
       break;
     case EACCES:
-      fprintf(stderr, "%s: permission denied\n", argv[0]);
+      fprintf(stderr, "%s: permission denied\n", command_name);
       break;
     default:
-      fprintf(stderr, "%s: exec error\n", argv[0]);
+      fprintf(stderr, "%s: exec error\n", command_name);
       break;
   }
   exit(EXEC_FAILURE);
@@ -78,7 +94,7 @@ void handleLine() {
     return;
   }
 
-  executeInFork(parsed_line->pipeline->commands->com);
+  runCommand(parsed_line->pipeline->commands->com);
 }
 
 int main(int argc, char *argv[]) {
