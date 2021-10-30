@@ -41,7 +41,7 @@ void executeInFork(command *const com) {
   char **argv = getArgVector(com);
   execvp(argv[0], argv);
 
-  // should not be reached unless an error occurred
+  // Should not be reached unless an error occurred.
   switch (errno) {
     case ENOENT:
       fprintf(stderr, "%s: no such file or directory\n", argv[0]);

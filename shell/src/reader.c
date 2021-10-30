@@ -11,7 +11,7 @@
 #define BUFFER_LENGTH (2 * MAX_LINE_LENGTH - 1)
 
 // Returns a pointer to a string containing a line from standard input.
-// The previously returned string may no longer be valid after the next function call.
+// The return value from getLine() points to static data which may be overwritten by subsequent calls.
 // Returns NULL on EOF.
 // When a line exceeding the limit is read, the function returns NULL and sets the errno flag to EIO.
 char* getLine() {
@@ -59,7 +59,7 @@ char* getLine() {
         start_ptr = search_ptr = newline + 1;
         discard = false;
       } else {
-        // since we are discarding all the read characters, we can reset the pointers
+        // Since we are discarding all the read characters, we can reset the pointers.
         start_ptr = search_ptr = end_ptr = buffer;
       }
       continue;
@@ -81,7 +81,7 @@ char* getLine() {
     }
     search_ptr += search_length;
     if (search_until_limit) {
-      // MAX_LINE_LENGTH characters were searched, but the newline was not found
+      // MAX_LINE_LENGTH characters were searched, but the newline was not found.
       start_ptr = search_ptr;
       discard = true;
       errno = EIO;
