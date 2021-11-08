@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -24,6 +25,15 @@ builtin_pair builtins_table[] = {
     {"lls", &builtinLs},
     {NULL, NULL},
 };
+
+builtin_ptr getBuiltin(char *command_name) {
+  for (builtin_pair *bp = builtins_table; bp->name != NULL; ++bp) {
+    if (strcmp(command_name, bp->name) == 0) {
+      return bp->fun;
+    }
+  }
+  return NULL;
+}
 
 int builtinCd(char *argv[]) {
   if (argv[2] != NULL) {

@@ -28,13 +28,12 @@ char **getArgVector(command *const com) {
 void runCommand(command *const com) {
   char *command_name = com->args->arg;
 
-  for (builtin_pair *bp = builtins_table; bp->name != NULL; ++bp) {
-    if (strcmp(command_name, bp->name) == 0) {
-      if (bp->fun(getArgVector(com)) == BUILTIN_ERROR) {
-        fprintf(stderr, "Builtin %s error.\n", command_name);
-      }
-      return;
+  builtin_ptr builtin = getBuiltin(command_name);
+  if (builtin != NULL) {
+    if (builtin(getArgVector(com)) == BUILTIN_ERROR) {
+      fprintf(stderr, "Builtin %s error.\n", command_name);
     }
+    return;
   }
 
   // It is crucial to flush the output stream before calling fork() and exec()
