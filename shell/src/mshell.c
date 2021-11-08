@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,6 +44,43 @@ void moveFileDescriptor(int from, int to) {
   closeFileDescriptor(from);
 }
 
+int openFile(char *filename, int options_flag, mode_t mode) {
+  int fd = open(filename, options_flag, mode);
+  if (fd != -1) {
+    return fd;
+  }
+  switch (errno) {
+    case ENOENT:
+      fprintf(stderr, "%s: no such file or directory\n", filename);
+      break;
+    case EACCES:
+      fprintf(stderr, "%s: permission denied\n", filename);
+      break;
+    default:
+      perror("open() failed");
+      break;
+  }
+  exit(EXIT_FAILURE);
+}
+
+void addRedirs(redir *const r) {
+  mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+  if (IS_RIN(r->flags)) {
+    int fd = openFile(r->filename, O_RDONLY, 0);
+    moveFileDescriptor(fd, STDIN_FILENO);
+    return;
+  }
+  if (IS_ROUT(r->flags)) {
+    int fd = openFile(r->filename, O_WRONLY | O_CREAT | O_TRUNC, mode);
+    moveFileDescriptor(fd, STDOUT_FILENO);
+    return;
+  }
+  if (IS_RAPPEND(r->flags)) {
+    int fd = openFile(r->filename, O_WRONLY | O_CREAT | O_APPEND, mode);
+    moveFileDescriptor(fd, STDOUT_FILENO);
+  }
+}
+
 void runCommand(command *const com, int read_fd, int pipe_fds[2]) {
   // It is crucial to flush the output stream before calling fork() and exec()
   // so that the buffered characters appear BEFORE whatever the child process outputs.
@@ -62,6 +100,14 @@ void runCommand(command *const com, int read_fd, int pipe_fds[2]) {
   if (pipe_fds != NULL) {
     moveFileDescriptor(pipe_fds[1], STDOUT_FILENO);
     closeFileDescriptor(pipe_fds[0]);
+  }
+
+  if (com->redirs != NULL) {
+    redirseq *rs = com->redirs;
+    do {
+      addRedirs(rs->r);
+      rs = rs->next;
+    } while (rs != com->redirs);
   }
 
   char *command_name = com->args->arg;
