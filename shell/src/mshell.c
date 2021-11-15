@@ -133,7 +133,7 @@ bool isEmptyPipeline(pipeline *p) {
     return true;
   }
   if (p->commands->com == NULL && p->commands->next == p->commands) {
-    // pipeline consists of exactly one NULL command (empty pipeline); corresponds to "; ;"
+    // Pipeline consists of exactly one NULL command (empty pipeline); corresponds to "; ;".
     return true;
   }
   return false;
