@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,9 +9,13 @@
 #include <unistd.h>
 
 #include "builtins.h"
+#include "childmanager.c"
 #include "config.h"
 #include "reader.c"
 #include "siparse.h"
+
+struct sigaction default_sigint_action;
+struct sigaction default_sigchld_action;
 
 char **getArgVector(command *const com) {
   static char *argv[(MAX_LINE_LENGTH + 1) / 2 + 1];
@@ -81,7 +86,7 @@ void addRedirs(redir *const r) {
   }
 }
 
-void runCommand(command *const com, int read_fd, int pipe_fds[2]) {
+void runCommand(command *const com, int read_fd, int pipe_fds[2], bool is_background) {
   // It is crucial to flush the output stream before calling fork() and exec()
   // so that the buffered characters appear BEFORE whatever the child process outputs.
   fflush(stdout);
@@ -93,8 +98,19 @@ void runCommand(command *const com, int read_fd, int pipe_fds[2]) {
   }
 
   if (pid != 0) {
+    if (!is_background) {
+      registerForegroundChild(pid);
+    }
     return;
   }
+
+  if (is_background) {
+    setsid();
+  }
+
+  unblockChildSignal();
+  sigaction(SIGINT, &default_sigint_action, NULL);
+  sigaction(SIGCHLD, &default_sigchld_action, NULL);
 
   moveFileDescriptor(read_fd, STDIN_FILENO);
   if (pipe_fds != NULL) {
@@ -211,7 +227,9 @@ void runPipeline(pipeline *pl) {
     c = c->next;
   } while (c != pl->commands);
 
-  if (num_commands == 1 && c->com->redirs == NULL) {
+  bool is_background = pl->flags == INBACKGROUND;
+
+  if (num_commands == 1 && c->com->redirs == NULL && !is_background) {
     char *command_name = c->com->args->arg;
     builtin_ptr builtin = getBuiltin(command_name);
     if (builtin != NULL) {
@@ -228,28 +246,26 @@ void runPipeline(pipeline *pl) {
     exit(EXIT_FAILURE);
   }
 
+  blockChildSignal();
   for (int i = 0; i < num_commands - 1; ++i) {
     int pipe_fds[2];
     if (pipe(pipe_fds) == -1) {
       perror("pipe() failed");
       exit(EXIT_FAILURE);
     }
-    runCommand(c->com, read_fd, pipe_fds);
+    runCommand(c->com, read_fd, pipe_fds, is_background);
     closeFileDescriptor(read_fd);
     closeFileDescriptor(pipe_fds[1]);
     read_fd = pipe_fds[0];
     c = c->next;
   }
-  runCommand(c->com, read_fd, NULL);
+  runCommand(c->com, read_fd, NULL, is_background);
   closeFileDescriptor(read_fd);
 
-  while (wait(NULL) != (pid_t)-1) {
-    continue;
+  if (!is_background) {
+    waitForForegroundChildren();
   }
-  if (errno != ECHILD) {
-    perror("wait() failed");
-    exit(EXIT_FAILURE);
-  }
+  unblockChildSignal();
 }
 
 void handleLine() {
@@ -278,10 +294,23 @@ void handleLine() {
 }
 
 int main(int argc, char *argv[]) {
+  struct sigaction sigint_action;
+  sigint_action.sa_handler = SIG_IGN;
+  sigint_action.sa_flags = SA_RESTART;
+  sigemptyset(&sigint_action.sa_mask);
+  sigaction(SIGINT, &sigint_action, &default_sigint_action);
+
+  struct sigaction sigchld_action;
+  sigchld_action.sa_handler = sigchldHandler;
+  sigchld_action.sa_flags = SA_NOCLDSTOP | SA_RESTART;
+  sigemptyset(&sigchld_action.sa_mask);
+  sigaction(SIGCHLD, &sigchld_action, &default_sigchld_action);
+
   bool is_a_tty = isatty(STDIN_FILENO);
 
   while (true) {
     if (is_a_tty) {
+      printBackgroundChildrenInfo();
       printf(PROMPT_STR);
       fflush(stdout);
     }
