@@ -296,7 +296,7 @@ void handleLine() {
 int main(int argc, char *argv[]) {
   struct sigaction sigint_action;
   sigint_action.sa_handler = SIG_IGN;
-  sigint_action.sa_flags = SA_RESTART;
+  sigint_action.sa_flags = 0;
   sigemptyset(&sigint_action.sa_mask);
   sigaction(SIGINT, &sigint_action, &default_sigint_action);
 
